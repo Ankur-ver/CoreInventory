@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    background-color: #0A0C0F;
+    color: #F0F2F7;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #363C4A; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4A5568; }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-surface border border-border rounded-lg;
+  }
+
+  .card-header {
+    @apply flex items-center justify-between px-5 py-4 border-b border-border;
+  }
+
+  .card-title {
+    @apply font-head font-bold text-sm text-text-primary;
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded text-sm font-medium
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-blue-500 active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply btn bg-bg-surface2 text-text-secondary border border-border
+           hover:text-text-primary hover:border-border-strong;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-500/10 text-status-danger border border-red-500/20
+           hover:bg-red-500/20;
+  }
+
+  .input {
+    @apply w-full bg-bg-surface2 border border-border rounded px-3 py-2
+           text-sm text-text-primary placeholder-text-muted outline-none
+           transition-colors focus:border-accent;
+  }
+
+  .select {
+    @apply input cursor-pointer appearance-none;
+  }
+
+  .label {
+    @apply block text-[11px] font-medium text-text-secondary uppercase tracking-wide mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold;
+  }
+
+  .badge::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full bg-current;
+  }
+
+  .badge-done    { @apply badge bg-status-success/10 text-status-success; }
+  .badge-ready   { @apply badge bg-accent/10 text-accent; }
+  .badge-waiting { @apply badge bg-status-warn/10 text-status-warn; }
+  .badge-draft   { @apply badge bg-text-secondary/10 text-text-secondary; }
+  .badge-canceled{ @apply badge bg-status-danger/10 text-status-danger; }
+
+  .tag-receipt   { @apply px-2 py-0.5 rounded text-[11px] font-medium bg-status-success/10 text-status-success; }
+  .tag-delivery  { @apply px-2 py-0.5 rounded text-[11px] font-medium bg-accent/10 text-accent; }
+  .tag-transfer  { @apply px-2 py-0.5 rounded text-[11px] font-medium bg-accent-purple/10 text-accent-purple; }
+  .tag-adjustment{ @apply px-2 py-0.5 rounded text-[11px] font-medium bg-status-warn/10 text-status-warn; }
+
+  .tbl { @apply w-full border-collapse; }
+  .tbl th {
+    @apply text-[11px] font-medium text-text-muted uppercase tracking-wide
+           text-left px-4 py-3 bg-bg-surface2 border-b border-border;
+  }
+  .tbl td {
+    @apply px-4 py-3 text-sm text-text-secondary border-b border-border
+           last:border-0;
+  }
+  .tbl tr:hover td { @apply bg-bg-surface2 text-text-primary cursor-pointer; }
+  .tbl td:first-child { @apply text-text-primary font-medium; }
+
+  .nav-item {
+    @apply flex items-center gap-2.5 px-5 py-2.5 text-[13px] text-text-secondary
+           border-l-2 border-transparent transition-all duration-150 cursor-pointer
+           hover:bg-bg-surface2 hover:text-text-primary;
+  }
+
+  .nav-item.active {
+    @apply bg-bg-surface2 text-accent border-l-accent font-medium;
+  }
+
+  .kpi-card {
+    @apply bg-bg-surface border border-border rounded-lg p-4 relative overflow-hidden
+           cursor-pointer transition-all duration-200 hover:border-border-strong hover:-translate-y-px;
+  }
+
+  .kpi-card::before {
+    content: '';
+    @apply absolute top-0 left-0 right-0 h-0.5;
+  }
+
+  .kpi-blue::before   { @apply bg-accent; }
+  .kpi-danger::before { @apply bg-status-danger; }
+  .kpi-warn::before   { @apply bg-status-warn; }
+  .kpi-purple::before { @apply bg-accent-purple; }
+  .kpi-green::before  { @apply bg-status-success; }
+}
