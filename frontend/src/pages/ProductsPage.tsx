@@ -228,7 +228,6 @@ export default function ProductsPage() {
         <ProductModal
           product={selected}
           categories={categories}
-          warehouses={warehouses}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); load(); }}
           onDelete={handleDelete}
@@ -239,10 +238,9 @@ export default function ProductsPage() {
 }
 
 // ── Product Modal ─────────────────────────────────────────────────────────────
-function ProductModal({ product, categories, warehouses, onClose, onSaved, onDelete }: {
+function ProductModal({ product, categories, onClose, onSaved, onDelete }: {
   product: Product | null;
   categories: Category[];
-  warehouses: Warehouse[];
   onClose: () => void;
   onSaved: () => void;
   onDelete: (id: string) => void;

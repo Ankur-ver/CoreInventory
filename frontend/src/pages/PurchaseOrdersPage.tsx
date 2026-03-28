@@ -266,7 +266,7 @@ function POModal({ order, onClose, onSaved, onStatusChange }: {
   );
   
   const [saving, setSaving] = useState(false);
-  const [editMode, setEditMode] = useState(!isView);
+  const [editMode] = useState(!isView);
 
   useEffect(() => {
     productApi.getAll({ limit: 200 }).then(r => setProducts(r.data.data.products));

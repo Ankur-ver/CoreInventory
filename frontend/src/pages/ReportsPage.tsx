@@ -93,7 +93,6 @@ export default function ReportsPage() {
   operations.forEach(op => { statusMap[op.status] = (statusMap[op.status] ?? 0) + 1; });
 
   // Merge with SO statuses from in-memory store
-  const allStatuses = ['DRAFT','WAITING','READY','DONE','CANCELED', 'Open','Fulfilled','Partially Fulfilled','Canceled'];
   const pieLabels = Object.keys(statusMap).length > 0 ? Object.keys(statusMap) : ['Draft','Open','Partially Received','Received','Canceled','Fulfilled','Partially Fulfilled'];
   const pieValues = Object.keys(statusMap).length > 0
     ? Object.values(statusMap)
