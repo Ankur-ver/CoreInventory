@@ -1,114 +1,157 @@
 // src/pages/SalesOrdersPage.tsx
 import { useState, useEffect } from 'react';
-import { productApi, warehouseApi } from '../api/services';
+import { productApi, warehouseApi, salesOrderApi } from '../api/services';
 import type { Product, Warehouse } from '../types';
 import { formatDate } from '../utils';
 import toast from 'react-hot-toast';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SOLine {
-  productId: string;
-  productName: string;
-  sku: string;
-  unit: string;
+  id?: string;
+  productId?: string;
+  productName?: string;
+  sku?: string;
+  unit?: string;
   quantity: number;
   unitPrice: number;
+  fulfilledQty?: number;
+  product?: { id: string; name: string; sku: string; unit: string };
 }
 
 interface SalesOrder {
   id: string;
   reference: string;
-  customer: string;
-  date: string;
-  status: 'Open' | 'Partially Fulfilled' | 'Fulfilled' | 'Canceled';
+  customer: { id: string; name: string; email?: string; phone?: string } | string;
+  orderDate?: string;
+  createdAt: string;
+  status: string;
   lines: SOLine[];
   notes?: string;
   locationId?: string;
+  location?: { id: string; name: string; warehouse?: { name: string } };
   total: number;
-  createdAt: string;
 }
 
-// In-memory store
-let soStore: SalesOrder[] = [
-  { id: '1', reference: 'SO-202500', customer: 'John Smith', date: '2025-09-06', status: 'Open', lines: [{ productId: '', productName: 'Chairs Type A', sku: 'SKU-0601', unit: 'pcs', quantity: 1, unitPrice: 150 }], total: 150, createdAt: '2025-09-06' },
-  { id: '2', reference: 'SO-202501', customer: 'Jane Lee', date: '2025-09-05', status: 'Partially Fulfilled', lines: [{ productId: '', productName: 'Steel Rods 6mm', sku: 'SKU-0712', unit: 'kg', quantity: 2, unitPrice: 99 }], total: 198, createdAt: '2025-09-05' },
-  { id: '3', reference: 'SO-202502', customer: 'Acme Retail', date: '2025-09-04', status: 'Fulfilled', lines: [{ productId: '', productName: 'Bearing 6205', sku: 'SKU-0512', unit: 'pcs', quantity: 4, unitPrice: 53 }], total: 212, createdAt: '2025-09-04' },
-  { id: '4', reference: 'SO-202503', customer: 'Blue Mart', date: '2025-09-03', status: 'Canceled', lines: [{ productId: '', productName: 'Aluminum Sheets', sku: 'SKU-0089', unit: 'pcs', quantity: 3, unitPrice: 72 }], total: 216, createdAt: '2025-09-03' },
-  { id: '5', reference: 'SO-202504', customer: 'John Smith', date: '2025-09-02', status: 'Open', lines: [{ productId: '', productName: 'Hydraulic Fluid', sku: 'SKU-0203', unit: 'L', quantity: 1, unitPrice: 81 }], total: 81, createdAt: '2025-09-02' },
-  { id: '6', reference: 'SO-202505', customer: 'Jane Lee', date: '2025-09-01', status: 'Partially Fulfilled', lines: [{ productId: '', productName: 'Safety Gloves L', sku: 'SKU-0445', unit: 'pcs', quantity: 1, unitPrice: 56 }], total: 56, createdAt: '2025-09-01' },
-];
-let soCounter = 6;
-
 const STATUS_COLORS: Record<string, string> = {
+  OPEN: 'bg-accent/10 text-accent',
+  PARTIALLY_FULFILLED: 'bg-status-warn/10 text-status-warn',
+  FULFILLED: 'bg-status-success/10 text-status-success',
+  CANCELED: 'bg-status-danger/10 text-status-danger',
   Open: 'bg-accent/10 text-accent',
   'Partially Fulfilled': 'bg-status-warn/10 text-status-warn',
   Fulfilled: 'bg-status-success/10 text-status-success',
   Canceled: 'bg-status-danger/10 text-status-danger',
 };
 
+function formatStatus(status: string) {
+  if (status === 'PARTIALLY_FULFILLED') return 'Partially Fulfilled';
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SalesOrdersPage() {
-  const [orders, setOrders] = useState<SalesOrder[]>([...soStore]);
+  const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selected, setSelected] = useState<SalesOrder | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const refresh = () => setOrders([...soStore]);
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const res = await salesOrderApi.getAll();
+      setOrders(res.data.data.orders);
+    } catch (e) {
+      toast.error('Failed to load sales orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const refresh = fetchOrders;
 
   const filtered = orders.filter(o => {
-    const ms = !search || o.reference.toLowerCase().includes(search.toLowerCase()) || o.customer.toLowerCase().includes(search.toLowerCase());
-    const mst = !statusFilter || o.status === statusFilter;
-    const mdf = !dateFrom || o.date >= dateFrom;
-    const mdt = !dateTo || o.date <= dateTo;
+    const custName = typeof o.customer === 'object' ? o.customer?.name : o.customer;
+    const ms = !search || o.reference.toLowerCase().includes(search.toLowerCase()) || (custName && custName.toLowerCase().includes(search.toLowerCase()));
+    
+    // Status filter
+    let mst = true;
+    if (statusFilter) {
+      const normalizedStatus = o.status.toUpperCase();
+      const normalizedFilter = statusFilter.toUpperCase().replace(' ', '_');
+      mst = normalizedStatus === normalizedFilter;
+    }
+
+    const d = (o.orderDate || o.createdAt)?.split('T')[0];
+    const mdf = !dateFrom || (d && d >= dateFrom);
+    const mdt = !dateTo || (d && d <= dateTo);
     return ms && mst && mdf && mdt;
   });
 
   const exportCSV = () => {
     const rows = [['Reference', 'Customer', 'Date', 'Status', 'Items', 'Total (USD)'],
-      ...filtered.map(o => [o.reference, o.customer, o.date, o.status, o.lines.length, o.total.toFixed(2)])];
-    const csv = rows.map(r => r.join(',')).join('\n');
+      ...filtered.map(o => [
+        o.reference,
+        typeof o.customer === 'object' ? o.customer?.name : o.customer,
+        (o.orderDate || o.createdAt)?.split('T')[0] || '',
+        formatStatus(o.status),
+        o.lines.length.toString(),
+        o.total.toFixed(2)
+      ])];
+    const csv = rows.map(r => r.join(',')).join('\\n');
     const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'sales-orders.csv'; a.click();
   };
 
-  const handleStatusChange = (id: string, status: SalesOrder['status']) => {
-    soStore = soStore.map(o => o.id === id ? { ...o, status } : o);
-    refresh();
-    toast.success(`Status updated to ${status}`);
+  const handleStatusChange = async (id: string, status: string) => {
+    const backendStatus = status.toUpperCase().replace(' ', '_');
+    try {
+      await salesOrderApi.update(id, { status: backendStatus });
+      refresh();
+      toast.success(`Status updated to ${status}`);
+    } catch {
+      toast.error('Failed to update status');
+    }
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-head font-bold text-xl text-text-primary">Sales Orders</h1>
           <p className="text-text-secondary text-sm mt-0.5">Orders sold to customers</p>
         </div>
-        <button className="btn-primary" onClick={() => { setSelected(null); setShowModal(true); }}>+ New Sales Order</button>
+        <button className="btn-primary w-full md:w-auto justify-center" onClick={() => { setSelected(null); setShowModal(true); }}>+ New Sales Order</button>
       </div>
 
       <div className="card">
         <div className="px-5 py-4 border-b border-border">
           <div className="text-[13px] font-medium text-text-primary mb-3">All Sales Orders</div>
-          <div className="flex gap-2 flex-wrap">
-            <div className="flex items-center gap-2 bg-bg-surface2 border border-border rounded px-3 py-2 flex-1 min-w-[180px] hover:border-border-strong transition-colors">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#4A5568">
+          <div className="flex flex-col md:flex-row gap-2 flex-wrap">
+            <div className="flex items-center gap-2 bg-bg-surface2 border border-border rounded px-3 py-2 flex-1 hover:border-border-strong transition-colors min-w-0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#4A5568" className="flex-shrink-0">
                 <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
               </svg>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SO number, customer…" className="bg-transparent outline-none text-sm text-text-primary placeholder-text-muted w-full" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SO number, customer…" className="bg-transparent outline-none text-sm text-text-primary placeholder-text-muted w-full min-w-0" />
             </div>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="select w-44">
-              <option value="">All Statuses</option>
-              {['Open','Partially Fulfilled','Fulfilled','Canceled'].map(s => <option key={s}>{s}</option>)}
-            </select>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input w-40 text-xs" />
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input w-40 text-xs" />
-            <button onClick={exportCSV} className="btn-ghost text-xs flex items-center gap-1.5">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-              Export CSV
-            </button>
+            <div className="grid grid-cols-2 md:flex md:flex-nowrap gap-2 w-full md:w-auto">
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="select w-full md:w-44">
+                <option value="">All Statuses</option>
+                {['Open','Partially Fulfilled','Fulfilled','Canceled'].map(s => <option key={s}>{s}</option>)}
+              </select>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input w-full md:w-36 text-xs" />
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input w-full md:w-36 text-xs" />
+              <button onClick={exportCSV} className="btn-ghost text-xs flex items-center justify-center gap-1.5 w-full md:w-auto">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                Export CSV
+              </button>
+            </div>
           </div>
         </div>
 
@@ -126,16 +169,18 @@ export default function SalesOrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr><td colSpan={7} className="text-center py-12 text-text-muted">Loading...</td></tr>
+              ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-12 text-text-muted">No sales orders found</td></tr>
               ) : filtered.map(o => (
                 <tr key={o.id}>
                   <td className="font-mono text-xs font-semibold">{o.reference}</td>
-                  <td>{o.customer}</td>
-                  <td className="text-text-muted">{formatDate(o.date)}</td>
+                  <td>{typeof o.customer === 'object' ? o.customer?.name : o.customer}</td>
+                  <td className="text-text-muted">{formatDate(o.orderDate || o.createdAt)}</td>
                   <td>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_COLORS[o.status]}`}>
-                      {o.status}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_COLORS[o.status] || STATUS_COLORS['OPEN']}`}>
+                      {formatStatus(o.status)}
                     </span>
                   </td>
                   <td className="text-text-muted">{o.lines.length}</td>
@@ -168,12 +213,7 @@ export default function SalesOrdersPage() {
         <SOModal
           order={selected}
           onClose={() => setShowModal(false)}
-          onSaved={so => {
-            if (selected) {
-              soStore = soStore.map(o => o.id === so.id ? so : o);
-            } else {
-              soStore = [so, ...soStore];
-            }
+          onSaved={() => {
             refresh();
             setShowModal(false);
           }}
@@ -188,17 +228,37 @@ export default function SalesOrdersPage() {
 function SOModal({ order, onClose, onSaved, onStatusChange }: {
   order: SalesOrder | null;
   onClose: () => void;
-  onSaved: (so: SalesOrder) => void;
-  onStatusChange: (id: string, status: SalesOrder['status']) => void;
+  onSaved: () => void;
+  onStatusChange: (id: string, status: string) => void;
 }) {
   const isView = !!order;
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [customer, setCustomer] = useState(order?.customer ?? '');
-  const [date, setDate] = useState(order?.date ?? new Date().toISOString().split('T')[0]);
-  const [locationId, setLocationId] = useState(order?.locationId ?? '');
+  
+  const initialCustomerName = typeof order?.customer === 'object' ? order.customer?.name : (order?.customer ?? '');
+  const [customer, setCustomer] = useState(initialCustomerName);
+  
+  const initialDate = order?.orderDate 
+    ? new Date(order.orderDate).toISOString().split('T')[0] 
+    : (order?.createdAt ? new Date(order.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(initialDate);
+  
+  const [locationId, setLocationId] = useState(
+    order?.location?.id || order?.locationId || ''
+  );
+  
   const [notes, setNotes] = useState(order?.notes ?? '');
-  const [lines, setLines] = useState<SOLine[]>(order?.lines ?? [{ productId: '', productName: '', sku: '', unit: 'pcs', quantity: 1, unitPrice: 0 }]);
+  
+  const [lines, setLines] = useState<SOLine[]>(
+    order?.lines?.map(l => ({
+      ...l,
+      productId: l.product?.id || l.productId,
+      productName: l.product?.name || l.productName,
+      sku: l.product?.sku || l.sku,
+      unit: l.product?.unit || l.unit,
+    })) ?? [{ productId: '', productName: '', sku: '', unit: 'pcs', quantity: 1, unitPrice: 0 }]
+  );
+  
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -214,29 +274,33 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
       if (idx !== i) return l;
       if (k === 'productId') {
         const p = products.find(p => p.id === v);
-        return p ? { ...l, productId: p.id, productName: p.name, sku: p.sku, unit: p.unit } : l;
+        return p ? { ...l, productId: p.id, productName: p.name, sku: p.sku, unit: p.unit, unitPrice: p.price ?? 0 } : l;
       }
       return { ...l, [k]: v };
     }));
   };
 
   const handleSave = async () => {
+    if (isView) {
+      onClose();
+      return;
+    }
+    
     if (!customer.trim()) { toast.error('Customer name is required'); return; }
     if (lines.some(l => !l.productId)) { toast.error('Select a product for each line'); return; }
     setSaving(true);
     try {
-      soCounter++;
-      const so: SalesOrder = {
-        id: String(Date.now()),
-        reference: `SO-2025${String(soCounter).padStart(2, '0')}`,
-        customer, date, locationId, notes,
-        status: 'Open',
-        lines,
-        total,
-        createdAt: new Date().toISOString(),
+      const payload = {
+        customerName: customer,
+        orderDate: new Date(date).toISOString(),
+        locationId: locationId || undefined,
+        notes,
+        lines: lines.map(l => ({ productId: l.productId!, quantity: l.quantity, unitPrice: l.unitPrice }))
       };
-      onSaved(so);
-      toast.success(`${so.reference} created`);
+      
+      const res = await salesOrderApi.create(payload);
+      toast.success(`${res.data.data.reference} created`);
+      onSaved();
     } catch {
       toast.error('Failed to create sales order');
     } finally {
@@ -245,8 +309,8 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-bg-surface border border-border-strong rounded-xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-0 md:p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-bg-surface border-0 md:border border-border-strong w-full h-full md:h-auto md:max-h-[92vh] md:rounded-xl md:max-w-2xl flex flex-col shadow-2xl overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border flex-shrink-0">
@@ -256,19 +320,19 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
             </h2>
             {isView && (
               <div className="flex items-center gap-2 mt-1">
-                <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>{order.status}</span>
-                <span className="text-[11px] text-text-muted">{order.customer} · {formatDate(order.date)}</span>
+                <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[order.status] || STATUS_COLORS['OPEN']}`}>{formatStatus(order.status)}</span>
+                <span className="text-[11px] text-text-muted">{initialCustomerName} · {formatDate(order.orderDate || order.createdAt)}</span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isView && order.status !== 'Canceled' && order.status !== 'Fulfilled' && (
+            {isView && order.status !== 'CANCELED' && order.status !== 'FULFILLED' && (
               <select
-                value={order.status}
-                onChange={e => onStatusChange(order.id, e.target.value as SalesOrder['status'])}
+                value={formatStatus(order.status)}
+                onChange={e => onStatusChange(order.id, e.target.value)}
                 className="select text-xs w-48"
               >
-                {['Open','Partially Fulfilled','Fulfilled','Canceled'].map(s => <option key={s}>{s}</option>)}
+                {['Open','Partially Fulfilled','Fulfilled','Canceled'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
             <button onClick={onClose} className="text-text-muted w-7 h-7 rounded bg-bg-surface2 flex items-center justify-center text-sm hover:text-text-primary">✕</button>
@@ -277,19 +341,19 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Customer *</label>
               {!isView
                 ? <input className="input" value={customer} onChange={e => setCustomer(e.target.value)} placeholder="e.g. John Smith" autoFocus />
-                : <div className="text-sm text-text-primary bg-bg-surface2 border border-border rounded px-3 py-2">{order.customer}</div>
+                : <div className="text-sm text-text-primary bg-bg-surface2 border border-border rounded px-3 py-2">{initialCustomerName}</div>
               }
             </div>
             <div>
               <label className="label">Order Date</label>
               {!isView
                 ? <input type="date" className="input" value={date} onChange={e => setDate(e.target.value)} />
-                : <div className="text-sm text-text-primary bg-bg-surface2 border border-border rounded px-3 py-2">{formatDate(order.date)}</div>
+                : <div className="text-sm text-text-primary bg-bg-surface2 border border-border rounded px-3 py-2">{formatDate(order.orderDate || order.createdAt)}</div>
               }
             </div>
           </div>
@@ -302,7 +366,7 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
                   {allLocations.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
                 </select>
               : <div className="text-sm text-text-primary bg-bg-surface2 border border-border rounded px-3 py-2">
-                  {allLocations.find(l => l.id === order.locationId)?.label ?? '—'}
+                  {allLocations.find(l => l.id === locationId)?.label ?? '—'}
                 </div>
             }
           </div>
@@ -312,56 +376,60 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
             <div className="flex items-center justify-between mb-2">
               <label className="label mb-0">Order Lines</label>
               {!isView && (
-                <button onClick={() => setLines(l => [...l, { productId: '', productName: '', sku: '', unit: 'pcs', quantity: 1, unitPrice: 0 }])}
+                <button onClick={() => setLines(l => [...l, { productId: '', productName: '', sku: '', unit: 'pcs', quantity: 1, unitPrice:0 }])}
                   className="text-accent text-xs hover:underline">+ Add line</button>
               )}
             </div>
 
-            <div className="grid grid-cols-[1fr_80px_90px_80px_24px] gap-2 mb-1 px-1">
-              <span className="text-[10px] text-text-muted uppercase tracking-wide">Product</span>
-              <span className="text-[10px] text-text-muted uppercase tracking-wide">Qty</span>
-              <span className="text-[10px] text-text-muted uppercase tracking-wide">Unit Price</span>
-              <span className="text-[10px] text-text-muted uppercase tracking-wide text-right">Total</span>
-              <span />
-            </div>
-
-            <div className="space-y-2">
-              {lines.map((line, i) => (
-                <div key={i} className="grid grid-cols-[1fr_80px_90px_80px_24px] gap-2 items-center">
-                  {!isView ? (
-                    <select className="select text-xs" value={line.productId} onChange={e => setLine(i, 'productId', e.target.value)}>
-                      <option value="">Select product…</option>
-                      {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
-                    </select>
-                  ) : (
-                    <div className="text-sm text-text-primary">
-                      <div>{line.productName}</div>
-                      <div className="text-[11px] text-text-muted font-mono">{line.sku}</div>
-                    </div>
-                  )}
-                  {!isView
-                    ? <input type="number" className="input text-xs text-center" value={line.quantity} min={1} onChange={e => setLine(i, 'quantity', Number(e.target.value))} />
-                    : <div className="text-sm text-text-secondary text-center">{line.quantity} {line.unit}</div>
-                  }
-                  {!isView
-                    ? <input type="number" className="input text-xs text-center" value={line.unitPrice} min={0} step={0.01} onChange={e => setLine(i, 'unitPrice', Number(e.target.value))} />
-                    : <div className="text-sm text-text-secondary text-center">USD {line.unitPrice.toFixed(2)}</div>
-                  }
-                  <div className="text-sm font-mono text-text-primary text-right">
-                    {(line.quantity * line.unitPrice).toFixed(2)}
-                  </div>
-                  {!isView && lines.length > 1
-                    ? <button onClick={() => setLines(l => l.filter((_, idx) => idx !== i))} className="text-text-muted hover:text-status-danger text-sm">✕</button>
-                    : <span />
-                  }
+            <div className="overflow-x-auto mt-2 -mx-2 px-2 md:mx-0 md:px-0 pb-2">
+              <div className="min-w-[480px]">
+                <div className="grid grid-cols-[1fr_80px_90px_80px_24px] gap-2 mb-1 px-1">
+                  <span className="text-[10px] text-text-muted uppercase tracking-wide">Product</span>
+                  <span className="text-[10px] text-text-muted uppercase tracking-wide">Qty</span>
+                  <span className="text-[10px] text-text-muted uppercase tracking-wide">Unit Price</span>
+                  <span className="text-[10px] text-text-muted uppercase tracking-wide text-right">Total</span>
+                  <span />
                 </div>
-              ))}
-            </div>
 
-            <div className="flex justify-end mt-3 pt-3 border-t border-border">
-              <div className="text-right">
-                <div className="text-[11px] text-text-muted uppercase tracking-wide">Order Total</div>
-                <div className="font-head font-bold text-xl text-text-primary mt-0.5">USD {total.toFixed(2)}</div>
+                <div className="space-y-2">
+                  {lines.map((line, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_80px_90px_80px_24px] gap-2 items-center">
+                      {!isView ? (
+                        <select className="select text-xs w-full" value={line.productId} onChange={e => setLine(i, 'productId', e.target.value)}>
+                          <option value="">Select product…</option>
+                          {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                        </select>
+                      ) : (
+                        <div className="text-sm text-text-primary">
+                          <div className="truncate">{line.productName}</div>
+                          <div className="text-[11px] text-text-muted font-mono">{line.sku}</div>
+                        </div>
+                      )}
+                      {!isView
+                        ? <input type="number" className="input text-xs text-center w-full min-w-0 px-1" value={line.quantity} min={1} onChange={e => setLine(i, 'quantity', Number(e.target.value))} />
+                        : <div className="text-sm text-text-secondary text-center">{line.quantity} {line.unit}</div>
+                      }
+                      {!isView
+                        ? <input type="number" className="input text-xs text-center w-full min-w-0 px-1" value={line.unitPrice} min={0} step={0.01} onChange={e => setLine(i, 'unitPrice', Number(e.target.value))} />
+                        : <div className="text-sm text-text-secondary text-center">USD {line.unitPrice?.toFixed(2) || '0.00'}</div>
+                      }
+                      <div className="text-sm font-mono text-text-primary text-right pl-1">
+                        {((line.quantity || 0) * (line.unitPrice || 0)).toFixed(2)}
+                      </div>
+                      {!isView && lines.length > 1
+                        ? <button onClick={() => setLines(l => l.filter((_, idx) => idx !== i))} className="text-text-muted hover:text-status-danger text-sm flex-shrink-0">✕</button>
+                        : <span />
+                      }
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end mt-3 pt-3 border-t border-border">
+                  <div className="text-right pr-6">
+                    <div className="text-[11px] text-text-muted uppercase tracking-wide">Order Total</div>
+                    <div className="font-head font-bold text-xl text-text-primary mt-0.5">USD {total.toFixed(2)}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -370,7 +438,7 @@ function SOModal({ order, onClose, onSaved, onStatusChange }: {
             <label className="label">Notes</label>
             {!isView
               ? <textarea className="input resize-none text-sm" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" />
-              : <div className="text-sm text-text-secondary bg-bg-surface2 border border-border rounded px-3 py-2 min-h-[40px]">{order.notes || '—'}</div>
+              : <div className="text-sm text-text-secondary bg-bg-surface2 border border-border rounded px-3 py-2 min-h-[40px]">{notes || '—'}</div>
             }
           </div>
         </div>

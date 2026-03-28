@@ -71,6 +71,7 @@ export const stockApi = {
 };
 
 // ── Warehouses ────────────────────────────────────────────────────────────────
+// ── Warehouses ────────────────────────────────────────────────────────────────
 export const warehouseApi = {
   getAll: () => api.get<{ data: Warehouse[] }>('/warehouses'),
 
@@ -79,4 +80,42 @@ export const warehouseApi = {
 
   createLocation: (payload: { name: string; warehouseId: string }) =>
     api.post('/warehouses/locations', payload),
+};
+
+// ── Sales Orders ──────────────────────────────────────────────────────────────
+export const salesOrderApi = {
+  getAll: (params?: Record<string, string | number>) =>
+    api.get<{ data: { orders: any[]; total: number; page: number; limit: number } }>('/sales-orders', { params }),
+
+  getOne: (id: string) => api.get<{ data: any }>(`/sales-orders/${id}`),
+
+  create: (payload: { customerName: string; customerId?: string; locationId?: string; notes?: string; orderDate?: string; lines: { productId: string; quantity: number; unitPrice: number }[] }) =>
+    api.post<{ data: any }>('/sales-orders', payload),
+
+  update: (id: string, payload: { status?: string; notes?: string; shippedDate?: string }) =>
+    api.patch<{ data: any }>(`/sales-orders/${id}`, payload),
+
+  fulfill: (id: string, lines?: { lineId: string; qty: number }[]) =>
+    api.post<{ data: any }>(`/sales-orders/${id}/fulfill`, { lines }),
+
+  cancel: (id: string) => api.post<{ data: any }>(`/sales-orders/${id}/cancel`),
+};
+
+// ── Purchase Orders ───────────────────────────────────────────────────────────
+export const purchaseOrderApi = {
+  getAll: (params?: Record<string, string | number>) =>
+    api.get<{ data: { orders: any[]; total: number; page: number; limit: number } }>('/purchase-orders', { params }),
+
+  getOne: (id: string) => api.get<{ data: any }>(`/purchase-orders/${id}`),
+
+  create: (payload: { supplierName: string; supplierId?: string; locationId?: string; notes?: string; orderDate?: string; expectedDate?: string; lines: { productId: string; quantity: number; unitPrice: number }[] }) =>
+    api.post<{ data: any }>('/purchase-orders', payload),
+
+  update: (id: string, payload: { status?: string; notes?: string; expectedDate?: string; receivedDate?: string }) =>
+    api.patch<{ data: any }>(`/purchase-orders/${id}`, payload),
+
+  receive: (id: string, lines?: { lineId: string; qty: number }[]) =>
+    api.post<{ data: any }>(`/purchase-orders/${id}/receive`, { lines }),
+
+  cancel: (id: string) => api.post<{ data: any }>(`/purchase-orders/${id}/cancel`),
 };
