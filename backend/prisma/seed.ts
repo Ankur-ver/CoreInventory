@@ -51,14 +51,14 @@ async function main() {
   console.log('  ✓ Locations');
 
   // ── Products (sequential) ──────────────────────────────────────────────────
-  const steelRods  = await prisma.product.create({ data: { name: 'Steel Rods 8mm',    sku: 'SKU-0041', categoryId: rawMat.id,       unit: 'kg',  reorderPoint: 100 } });
-  const alSheets   = await prisma.product.create({ data: { name: 'Aluminum Sheets',   sku: 'SKU-0089', categoryId: rawMat.id,       unit: 'pcs', reorderPoint: 50  } });
-  const hydraulic  = await prisma.product.create({ data: { name: 'Hydraulic Fluid',   sku: 'SKU-0203', categoryId: consumables.id,  unit: 'L',   reorderPoint: 20  } });
-  const copperWire = await prisma.product.create({ data: { name: 'Copper Wire 2.5mm', sku: 'SKU-0317', categoryId: rawMat.id,       unit: 'm',   reorderPoint: 200 } });
-  const gloves     = await prisma.product.create({ data: { name: 'Safety Gloves L',   sku: 'SKU-0445', categoryId: consumables.id,  unit: 'pcs', reorderPoint: 30  } });
-  const bearings   = await prisma.product.create({ data: { name: 'Bearing 6205',      sku: 'SKU-0512', categoryId: tools.id,        unit: 'pcs', reorderPoint: 100 } });
-  const chairs     = await prisma.product.create({ data: { name: 'Chairs Type A',     sku: 'SKU-0601', categoryId: finished.id,     unit: 'pcs', reorderPoint: 50  } });
-  const steelRods6 = await prisma.product.create({ data: { name: 'Steel Rods 6mm',    sku: 'SKU-0712', categoryId: rawMat.id,       unit: 'kg',  reorderPoint: 200 } });
+  const steelRods  = await prisma.product.upsert({ where: { sku: 'SKU-0041' }, update: { price: 8.50 }, create: { name: 'Steel Rods 8mm',    sku: 'SKU-0041', categoryId: rawMat.id,       unit: 'kg',  reorderPoint: 100, price: 8.50 } });
+  const alSheets   = await prisma.product.upsert({ where: { sku: 'SKU-0089' }, update: { price: 15.00 }, create: { name: 'Aluminum Sheets',   sku: 'SKU-0089', categoryId: rawMat.id,       unit: 'pcs', reorderPoint: 50,  price: 15.00 } });
+  const hydraulic  = await prisma.product.upsert({ where: { sku: 'SKU-0203' }, update: { price: 45.00 }, create: { name: 'Hydraulic Fluid',   sku: 'SKU-0203', categoryId: consumables.id,  unit: 'L',   reorderPoint: 20,  price: 45.00 } });
+  const copperWire = await prisma.product.upsert({ where: { sku: 'SKU-0317' }, update: { price: 2.25 }, create: { name: 'Copper Wire 2.5mm', sku: 'SKU-0317', categoryId: rawMat.id,       unit: 'm',   reorderPoint: 200, price: 2.25 } });
+  const gloves     = await prisma.product.upsert({ where: { sku: 'SKU-0445' }, update: { price: 12.50 }, create: { name: 'Safety Gloves L',   sku: 'SKU-0445', categoryId: consumables.id,  unit: 'pcs', reorderPoint: 30,  price: 12.50 } });
+  const bearings   = await prisma.product.upsert({ where: { sku: 'SKU-0512' }, update: { price: 35.75 }, create: { name: 'Bearing 6205',      sku: 'SKU-0512', categoryId: tools.id,        unit: 'pcs', reorderPoint: 100, price: 35.75 } });
+  const chairs     = await prisma.product.upsert({ where: { sku: 'SKU-0601' }, update: { price: 125.00 }, create: { name: 'Chairs Type A',     sku: 'SKU-0601', categoryId: finished.id,     unit: 'pcs', reorderPoint: 50,  price: 125.00 } });
+  const steelRods6 = await prisma.product.upsert({ where: { sku: 'SKU-0712' }, update: { price: 7.25 }, create: { name: 'Steel Rods 6mm',    sku: 'SKU-0712', categoryId: rawMat.id,       unit: 'kg',  reorderPoint: 200, price: 7.25 } });
 
   console.log('  ✓ Products');
 

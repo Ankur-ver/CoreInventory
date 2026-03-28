@@ -8,233 +8,7 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model User {
-  id           String          @id @default(cuid())
-  email        String          @unique
-  password     String
-  name         String
-  role         Role            @default(STAFF)
-  refreshToken String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  operations   Operation[]
-  movements    StockMovement[]
-
-  @@map("users")
-}
-
-model Warehouse {
-  id        String     @id @default(cuid())
-  name      String
-  address   String?
-  capacity  Float?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  locations Location[]
-
-  @@map("warehouses")
-}
-
-model Location {
-  id             String          @id @default(cuid())
-  name           String
-  warehouseId    String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  warehouse      Warehouse       @relation(fields: [warehouseId], references: [id])
-  fromTransfers  Operation[]     @relation("FromLocation")
-  toTransfers    Operation[]     @relation("ToLocation")
-  purchaseOrders PurchaseOrder[] @relation("POLocation")
-  salesOrders    SalesOrder[]    @relation("SOLocation")
-  stockItems     StockItem[]
-
-  @@map("locations")
-}
-
-model Category {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  createdAt DateTime  @default(now())
-  products  Product[]
-
-  @@map("categories")
-}
-
-model Product {
-  id                 String              @id @default(cuid())
-  name               String
-  sku                String              @unique
-  barcode            String?
-  categoryId         String
-  unit               String              @default("pcs")
-  reorderPoint       Float               @default(0)
-  description        String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  initialStock       Float               @default(0)
-  price              Float               @default(0)
-  operationLines     OperationLine[]
-  category           Category            @relation(fields: [categoryId], references: [id])
-  purchaseOrderLines PurchaseOrderLine[]
-  salesOrderLines    SalesOrderLine[]
-  stockItems         StockItem[]
-
-  @@map("products")
-}
-
-model StockItem {
-  id         String      @id @default(cuid())
-  productId  String
-  locationId String
-  quantity   Float       @default(0)
-  status     StockStatus @default(OK)
-  updatedAt  DateTime    @updatedAt
-  location   Location    @relation(fields: [locationId], references: [id])
-  product    Product     @relation(fields: [productId], references: [id])
-
-  @@unique([productId, locationId])
-  @@map("stock_items")
-}
-
-model StockMovement {
-  id          String       @id @default(cuid())
-  productId   String
-  type        MovementType
-  quantity    Float
-  reference   String
-  operationId String?
-  userId      String
-  note        String?
-  createdAt   DateTime     @default(now())
-  user        User         @relation(fields: [userId], references: [id])
-
-  @@map("stock_movements")
-}
-
-model Supplier {
-  id             String          @id @default(cuid())
-  name           String
-  email          String?
-  phone          String?
-  createdAt      DateTime        @default(now())
-  address        String?
-  updatedAt      DateTime        @default(now()) @updatedAt
-  operations     Operation[]
-  purchaseOrders PurchaseOrder[]
-
-  @@map("suppliers")
-}
-
-model Customer {
-  id          String       @id @default(cuid())
-  name        String
-  email       String?
-  phone       String?
-  address     String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  salesOrders SalesOrder[]
-
-  @@map("customers")
-}
-
-model Operation {
-  id             String          @id @default(cuid())
-  reference      String          @unique
-  type           OperationType
-  status         OperationStatus @default(DRAFT)
-  userId         String
-  supplierId     String?
-  fromLocationId String?
-  toLocationId   String?
-  scheduledDate  DateTime?
-  completedAt    DateTime?
-  notes          String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  lines          OperationLine[]
-  fromLocation   Location?       @relation("FromLocation", fields: [fromLocationId], references: [id])
-  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
-  toLocation     Location?       @relation("ToLocation", fields: [toLocationId], references: [id])
-  user           User            @relation(fields: [userId], references: [id])
-
-  @@map("operations")
-}
-
-model OperationLine {
-  id          String    @id @default(cuid())
-  operationId String
-  productId   String
-  quantity    Float
-  received    Float?
-  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
-  product     Product   @relation(fields: [productId], references: [id])
-
-  @@map("operation_lines")
-}
-
-model PurchaseOrder {
-  id           String              @id @default(cuid())
-  reference    String              @unique
-  supplierId   String
-  locationId   String?
-  status       POStatus            @default(DRAFT)
-  orderDate    DateTime            @default(now())
-  expectedDate DateTime?
-  receivedDate DateTime?
-  notes        String?
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  lines        PurchaseOrderLine[]
-  location     Location?           @relation("POLocation", fields: [locationId], references: [id])
-  supplier     Supplier            @relation(fields: [supplierId], references: [id])
-
-  @@map("purchase_orders")
-}
-
-model PurchaseOrderLine {
-  id              String        @id @default(cuid())
-  purchaseOrderId String
-  productId       String
-  quantity        Float
-  unitPrice       Float         @default(0)
-  receivedQty     Float         @default(0)
-  product         Product       @relation(fields: [productId], references: [id])
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-
-  @@map("purchase_order_lines")
-}
-
-model SalesOrder {
-  id          String           @id @default(cuid())
-  reference   String           @unique
-  customerId  String
-  locationId  String?
-  status      SOStatus         @default(OPEN)
-  orderDate   DateTime         @default(now())
-  shippedDate DateTime?
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  lines       SalesOrderLine[]
-  customer    Customer         @relation(fields: [customerId], references: [id])
-  location    Location?        @relation("SOLocation", fields: [locationId], references: [id])
-
-  @@map("sales_orders")
-}
-
-model SalesOrderLine {
-  id           String     @id @default(cuid())
-  salesOrderId String
-  productId    String
-  quantity     Float
-  unitPrice    Float      @default(0)
-  fulfilledQty Float      @default(0)
-  product      Product    @relation(fields: [productId], references: [id])
-  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
-
-  @@map("sales_order_lines")
-}
+// ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum Role {
   ADMIN
@@ -283,4 +57,357 @@ enum SOStatus {
   PARTIALLY_FULFILLED
   FULFILLED
   CANCELED
+}
+
+// ─── User & Auth ──────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         Role     @default(STAFF)
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  operations       Operation[]
+  movements        StockMovement[]
+  requestedTransfers TransferRequest[] @relation("RequestedBy")
+  approvedTransfers  TransferRequest[] @relation("ApprovedBy")
+
+  @@map("users")
+}
+
+// ─── Warehouse & Location ─────────────────────────────────────────────────────
+
+model Warehouse {
+  id        String     @id @default(cuid())
+  name      String
+  address   String?
+  capacity  Float?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  locations        Location[]
+  demandForecasts  DemandForecast[]
+  fromTransferReqs TransferRequest[] @relation("FromWarehouse")
+  toTransferReqs   TransferRequest[] @relation("ToWarehouse")
+
+  @@map("warehouses")
+}
+
+model Location {
+  id          String    @id @default(cuid())
+  name        String
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  stockItems    StockItem[]
+  fromTransfers Operation[]     @relation("FromLocation")
+  toTransfers   Operation[]     @relation("ToLocation")
+  purchaseOrders PurchaseOrder[] @relation("POLocation")
+  salesOrders    SalesOrder[]    @relation("SOLocation")
+
+  @@map("locations")
+}
+
+// ─── Product ──────────────────────────────────────────────────────────────────
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  sku          String   @unique
+  barcode      String?
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  unit         String   @default("pcs")
+  reorderPoint Float    @default(0)
+  price        Float    @default(0)
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stockItems        StockItem[]
+  operationLines    OperationLine[]
+  purchaseOrderLines PurchaseOrderLine[]
+  salesOrderLines    SalesOrderLine[]
+  demandForecasts    DemandForecast[]
+  transferRequests   TransferRequest[]
+
+  @@map("products")
+}
+
+// ─── Stock ────────────────────────────────────────────────────────────────────
+
+model StockItem {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id])
+  locationId String
+  location   Location    @relation(fields: [locationId], references: [id])
+  quantity   Float       @default(0)
+  status     StockStatus @default(OK)
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([productId, locationId])
+  @@map("stock_items")
+}
+
+model StockMovement {
+  id          String       @id @default(cuid())
+  productId   String
+  type        MovementType
+  quantity    Float
+  reference   String
+  operationId String?
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@map("stock_movements")
+}
+
+// ─── Operations (internal) ────────────────────────────────────────────────────
+
+model Supplier {
+  id        String          @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  operations     Operation[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model Customer {
+  id        String       @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  salesOrders SalesOrder[]
+
+  @@map("customers")
+}
+
+model Operation {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  type           OperationType
+  status         OperationStatus @default(DRAFT)
+  userId         String
+  user           User            @relation(fields: [userId], references: [id])
+  supplierId     String?
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  fromLocationId String?
+  fromLocation   Location?       @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocationId   String?
+  toLocation     Location?       @relation("ToLocation", fields: [toLocationId], references: [id])
+  scheduledDate  DateTime?
+  completedAt    DateTime?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  lines OperationLine[]
+
+  @@map("operations")
+}
+
+model OperationLine {
+  id          String    @id @default(cuid())
+  operationId String
+  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  quantity    Float
+  received    Float?
+
+  @@map("operation_lines")
+}
+
+// ─── Purchase Orders ──────────────────────────────────────────────────────────
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  reference    String    @unique
+  supplierId   String
+  supplier     Supplier  @relation(fields: [supplierId], references: [id])
+  locationId   String?
+  location     Location? @relation("POLocation", fields: [locationId], references: [id])
+  status       POStatus  @default(DRAFT)
+  orderDate    DateTime  @default(now())
+  expectedDate DateTime?
+  receivedDate DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  lines PurchaseOrderLine[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+  quantity        Float
+  unitPrice       Float         @default(0)
+  receivedQty     Float         @default(0)
+
+  @@map("purchase_order_lines")
+}
+
+// ─── Sales Orders ─────────────────────────────────────────────────────────────
+
+model SalesOrder {
+  id          String    @id @default(cuid())
+  reference   String    @unique
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  locationId  String?
+  location    Location? @relation("SOLocation", fields: [locationId], references: [id])
+  status      SOStatus  @default(OPEN)
+  orderDate   DateTime  @default(now())
+  shippedDate DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lines SalesOrderLine[]
+
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id           String     @id @default(cuid())
+  salesOrderId String
+  salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  quantity     Float
+  unitPrice    Float      @default(0)
+  fulfilledQty Float      @default(0)
+
+  @@map("sales_order_lines")
+}
+
+// ─── Demand Forecasting ───────────────────────────────────────────────────────
+
+enum ForecastMethod {
+  MOVING_AVERAGE
+  WEIGHTED_AVERAGE
+  TREND_BASED
+}
+
+model DemandForecast {
+  id          String         @id @default(cuid())
+  productId   String
+  product     Product        @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse      @relation(fields: [warehouseId], references: [id])
+  method      ForecastMethod @default(MOVING_AVERAGE)
+  forecastQty Float
+  periodDays  Int            @default(30)
+  confidence  Float          @default(0)
+  generatedAt DateTime       @default(now())
+  notes       String?
+
+  @@map("demand_forecasts")
+}
+
+// ─── Inter-Warehouse Transfer Requests ────────────────────────────────────────
+
+enum TransferRequestStatus {
+  PENDING
+  APPROVED
+  IN_TRANSIT
+  COMPLETED
+  REJECTED
+}
+
+model TransferRequest {
+  id              String                @id @default(cuid())
+  reference       String                @unique
+  fromWarehouseId String
+  fromWarehouse   Warehouse             @relation("FromWarehouse", fields: [fromWarehouseId], references: [id])
+  toWarehouseId   String
+  toWarehouse     Warehouse             @relation("ToWarehouse", fields: [toWarehouseId], references: [id])
+  productId       String
+  product         Product               @relation(fields: [productId], references: [id])
+  requestedQty    Float
+  approvedQty     Float?
+  status          TransferRequestStatus @default(PENDING)
+  reason          String?
+  requestedById   String
+  requestedBy     User                  @relation("RequestedBy", fields: [requestedById], references: [id])
+  approvedById    String?
+  approvedBy      User?                 @relation("ApprovedBy", fields: [approvedById], references: [id])
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@map("transfer_requests")
+}
+
+// ─── Event Log (Event-Driven Architecture) ───────────────────────────────────
+
+enum EventType {
+  STOCK_LOW
+  STOCK_OUT
+  PO_CREATED
+  PO_RECEIVED
+  SO_CREATED
+  SO_FULFILLED
+  TRANSFER_REQUESTED
+  TRANSFER_COMPLETED
+  ADJUSTMENT_MADE
+  FORECAST_GENERATED
+  REORDER_TRIGGERED
+}
+
+enum EventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  ACKNOWLEDGED
+}
+
+model InventoryEvent {
+  id          String      @id @default(cuid())
+  type        EventType
+  status      EventStatus @default(PENDING)
+  payload     Json
+  entityId    String?
+  entityType  String?
+  message     String
+  severity    String      @default("info")
+  processedAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@map("inventory_events")
 }

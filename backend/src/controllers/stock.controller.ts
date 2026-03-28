@@ -182,3 +182,38 @@ export const getDashboardStats = async (_req: AuthRequest, res: Response, next: 
     });
   } catch (err) { next(err); }
 };
+
+// ── Stock check helper — emit events when stock is low/out ────────────────────
+import eventBus from '../utils/eventBus';
+
+export async function checkAndEmitStockEvents(
+  productId: string,
+  locationId: string,
+  quantity: number
+): Promise<void> {
+  try {
+    const product  = await prisma.product.findUnique({ where: { id: productId }, select: { name: true, sku: true, reorderPoint: true } });
+    const location = await prisma.location.findUnique({ where: { id: locationId }, include: { warehouse: true } });
+    if (!product || !location) return;
+
+    if (quantity === 0) {
+      await eventBus.emit({
+        type:       'STOCK_OUT',
+        message:    `${product.name} is OUT OF STOCK in ${location.warehouse.name}`,
+        severity:   'critical',
+        entityId:   productId,
+        entityType: 'Product',
+        payload:    { productId, productName: product.name, sku: product.sku, quantity: 0, warehouseId: location.warehouseId, locationId },
+      });
+    } else if (product.reorderPoint > 0 && quantity < product.reorderPoint) {
+      await eventBus.emit({
+        type:       'STOCK_LOW',
+        message:    `${product.name} is LOW in ${location.warehouse.name}: ${quantity} remaining (reorder at ${product.reorderPoint})`,
+        severity:   'warning',
+        entityId:   productId,
+        entityType: 'Product',
+        payload:    { productId, productName: product.name, sku: product.sku, quantity, reorderPoint: product.reorderPoint, warehouseId: location.warehouseId, locationId },
+      });
+    }
+  } catch { /* non-blocking */ }
+}

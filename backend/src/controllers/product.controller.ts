@@ -4,6 +4,7 @@ import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { PrismaClient } from '@prisma/client';
 
 const productSchema = z.object({
   name: z.string().min(1),
@@ -11,15 +12,14 @@ const productSchema = z.object({
   barcode: z.string().optional(),
   categoryId: z.string(),
   unit: z.string().default('pcs'),
-  reorderPoint: z.number().min(0),
-  description: z.string().optional(),
-  initialStock:z.number().optional().default(0),
   price:z.number(),
+  reorderPoint: z.number().min(0).default(0),
+  description: z.string().optional(),
 });
 
 const productSelect = {
-  id: true, name: true, sku: true, barcode: true, unit: true,
-  reorderPoint: true, initialStock: true, price: true, description: true, createdAt: true, updatedAt: true,
+  id: true, name: true, sku: true, barcode: true, unit: true,price:true,
+  reorderPoint: true, description: true, createdAt: true, updatedAt: true,
   category: { select: { id: true, name: true } },
   stockItems: {
     select: {
