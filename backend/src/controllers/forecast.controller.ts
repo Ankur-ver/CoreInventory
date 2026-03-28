@@ -293,7 +293,7 @@ export const getBulkForecast = async (req: AuthRequest, res: Response, next: Nex
 
     // Sort: HIGH risk first, then by days of stock
     results.sort((a, b) => {
-      const riskOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      const riskOrder: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
       const rd = riskOrder[a.stockoutRisk] - riskOrder[b.stockoutRisk];
       return rd !== 0 ? rd : a.daysOfStock - b.daysOfStock;
     });
